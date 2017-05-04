@@ -13,14 +13,14 @@
 using namespace std;
 
 __device__ char* findPassword(char *grid, int x, int n);
-__device__ char* generatePassword(char *grid, char* domain, int domainSize);
+__device__ char* generatePassword(char *grid, char* domain, int domainSize, int n);
 __device__ int randomNumber(int blockId);
 __device__ int findCharIndex(char *grid, char toFind, int fromX, int fromY, int dir, int n);
 __device__ int index(int x, int y, int n);
 
 __global__ void findPasswords( char *grid, char *result, int n) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
-	if (index < M) {
+	if (index <= M) {
 		char* arr = findPassword(grid, index, n);
 		for (int i = 0; i < CHARS_PER_PASSWORD; i++) {
 			result[(index * CHARS_PER_PASSWORD) + i] = arr[i];
@@ -30,17 +30,20 @@ __global__ void findPasswords( char *grid, char *result, int n) {
 
 __device__ char* findPassword(char *grid, int x, int n) {
 	char * thisArr = new char[CHARS_PER_PASSWORD]();
-	char domain[3];
-	domain[0] = 'A';
-	domain[1] = 'B';
-	domain[2] = 'C';
-
-	int domainSize = (sizeof(domain)/sizeof(char));
-	char * generatedPassword = generatePassword(grid, domain, domainSize);
-
-	int rand1 = randomNumber(x) % n;
-	char random1 = '0' + rand1;
+	char domain[5];
 	
+	int domainSize = (sizeof(domain)/sizeof(char));
+	for (int i = 0; i < domainSize; i++) {
+		int rand = randomNumber(x) % n;
+        	if (rand < 0) {
+			// kinda hacky
+			rand = rand * -1;
+		}
+		domain[i] = 'A' + rand;	
+	}
+
+	char * generatedPassword = generatePassword(grid, domain, domainSize, n);
+
 	for (int i = 0; i < domainSize; i++) {
 		thisArr[i] = domain[i];
 	}
@@ -55,12 +58,10 @@ __device__ char* findPassword(char *grid, int x, int n) {
 	return thisArr;
 }
 
-
-__device__ char* generatePassword(char *grid, char* domain, int domainSize) {
+__device__ char* generatePassword(char *grid, char* domain, int domainSize, int n) {
 	char* generatedPassword = new char[domainSize*2]();
 
-	int n = 6;
-
+	// x and y should probably be randomly initialized but they're not :)
 	int x = 0;
 	int y = 0;
 	int dir = 0;
@@ -203,10 +204,9 @@ int main( void )
 
 	ofstream resultfile;
 	resultfile.open("passwords.txt");
-	cout << "test \n";
+
+	// This isn't deduped but there's an extra 1,000 passwords for you!
 	for( int i = 0 ; i < M*CHARS_PER_PASSWORD; i ++ ){
-		//cout << i;
-		//cout << " : ";
 		if (result[i]!='\0') { 
 			resultfile << result[i];
 		}
@@ -214,7 +214,6 @@ int main( void )
 			resultfile << endl;
 		} 
 	}
-	cout << endl;
 	resultfile.close();
 
 	return 0;
